@@ -1,0 +1,1176 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Kalendarz leków</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0b0d12" />
+
+  <!-- iOS PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Kalendarz leków" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+
+  <style>
+    :root{
+      --bg:#0b0d12; --text:#e9ecf1; --muted:#a9b1c3;
+      --border:#232a3d;
+      --accent:#7c5cff; --ok:#22c55e; --danger:#ef4444;
+
+      --radius:18px;
+      --shadow: 0 12px 40px rgba(0,0,0,.35);
+
+      --safe-top: env(safe-area-inset-top);
+      --safe-bottom: env(safe-area-inset-bottom);
+      --tap: 44px;
+    }
+
+    *{box-sizing:border-box}
+    html, body{height:100%}
+
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background:
+        radial-gradient(1200px 700px at 10% 0%, rgba(124,92,255,.22), transparent 55%),
+        radial-gradient(900px 600px at 90% 20%, rgba(34,197,94,.14), transparent 55%),
+        var(--bg);
+      color:var(--text);
+      -webkit-tap-highlight-color: transparent;
+      text-size-adjust: 100%;
+      overflow-x:hidden;
+    }
+
+    .wrap{
+      max-width:1100px;
+      margin:0 auto;
+      padding: 14px;
+      padding-top: calc(14px + var(--safe-top));
+      padding-bottom: calc(14px + var(--safe-bottom));
+    }
+
+    header{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    h1{
+      margin:0;
+      font-size: clamp(20px, 5vw, 28px);
+      letter-spacing:.2px;
+      line-height:1.1;
+    }
+    .sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size: clamp(12px, 3.2vw, 14px);
+    }
+
+    button, input, select{font:inherit; color:inherit}
+
+    .btn{
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+      padding: 12px 14px;
+      border-radius: 14px;
+      cursor:pointer;
+      transition: transform .08s ease, border-color .15s ease, background .15s ease;
+      min-height: var(--tap);
+      touch-action: manipulation;
+      user-select:none;
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn:hover{border-color: rgba(124,92,255,.6)}
+    .btn.primary{
+      border-color: rgba(124,92,255,.75);
+      background:linear-gradient(180deg, rgba(124,92,255,.30), rgba(124,92,255,.14));
+    }
+    .btn.ok{
+      border-color: rgba(34,197,94,.60);
+      background:linear-gradient(180deg, rgba(34,197,94,.22), rgba(34,197,94,.10));
+    }
+    .btn.danger{
+      border-color: rgba(239,68,68,.60);
+      background:linear-gradient(180deg, rgba(239,68,68,.22), rgba(239,68,68,.10));
+    }
+    .btn.mini{
+      padding: 10px 12px;
+      min-height: 40px;
+      border-radius: 14px;
+    }
+
+    .splitActions{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+
+    .card{
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 10px 26px rgba(0,0,0,.28);
+      overflow:hidden;
+      background: rgba(18, 22, 37, .72);
+      backdrop-filter: blur(10px);
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:14px;
+      align-items:start;
+    }
+
+    /* ===== Calendar ===== */
+    .hd{
+      padding: 12px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      background: rgba(0,0,0,.18);
+      position: sticky;
+      top: calc(8px + var(--safe-top));
+      z-index: 5;
+      backdrop-filter: blur(10px);
+    }
+    .monthTitle{font-weight:800; letter-spacing:.3px}
+    .nav{display:flex; gap:8px; align-items:center}
+
+    .grid{padding: 12px}
+    .dow{
+      display:grid;
+      grid-template-columns: repeat(7,1fr);
+      gap: 7px;
+      margin-bottom: 8px;
+      color:var(--muted);
+      font-size: 12px;
+      text-transform:uppercase;
+      letter-spacing:.9px;
+    }
+    .days{
+      display:grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 7px;
+    }
+
+    .day{
+      border:1px solid rgba(255,255,255,.08);
+      border-radius: 14px;
+      padding: 10px;
+      background: rgba(0,0,0,.18);
+      cursor:pointer;
+      transition: border-color .15s ease, transform .08s ease, background .15s ease;
+      position:relative;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-height: 78px;
+      touch-action: manipulation;
+      user-select:none;
+    }
+    .day:active{transform: translateY(1px)}
+    .day.muted{opacity:.35}
+    .day.selected{
+      border-color: rgba(124,92,255,.95);
+      background: rgba(124,92,255,.16);
+    }
+    .daynum{font-weight:900; font-size: 14px; line-height:1}
+
+    .badge{
+      position:absolute; right:8px; top:8px;
+      background: rgba(34,197,94,.18);
+      border:1px solid rgba(34,197,94,.45);
+      color: #dfffea;
+      font-size:12px;
+      padding:3px 7px;
+      border-radius:999px;
+    }
+    .tiny{
+      margin-top:auto;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.25;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+
+    /* ===== Status dnia (dni z przeszłości) ===== */
+    .day.doneDay{
+      border-color: rgba(34,197,94,.65) !important;
+      background: rgba(34,197,94,.14) !important;
+      box-shadow: 0 0 0 1px rgba(34,197,94,.20) inset, 0 10px 26px rgba(34,197,94,.10);
+    }
+    .day.missedDay{
+      border-color: rgba(239,68,68,.65) !important;
+      background: rgba(239,68,68,.12) !important;
+      box-shadow: 0 0 0 1px rgba(239,68,68,.20) inset, 0 10px 26px rgba(239,68,68,.10);
+    }
+    .day.doneDay .badge{
+      background: rgba(34,197,94,.22) !important;
+      border-color: rgba(34,197,94,.55) !important;
+    }
+    .day.missedDay .badge{
+      background: rgba(239,68,68,.22) !important;
+      border-color: rgba(239,68,68,.55) !important;
+    }
+    .day.doneDay .tiny, .day.missedDay .tiny{
+      color: rgba(233,236,241,.78);
+    }
+
+    /* ===== Dziś: delikatny niebiesko-fioletowy glow ===== */
+    .day.todayGlow{
+      border-color: rgba(124,92,255,.75) !important;
+      background: rgba(124,92,255,.10) !important;
+      box-shadow:
+        0 0 0 1px rgba(124,92,255,.18) inset,
+        0 14px 34px rgba(124,92,255,.12);
+    }
+    .day.selected.todayGlow{
+      border-color: rgba(124,92,255,.95) !important;
+      background: rgba(124,92,255,.16) !important;
+      box-shadow:
+        0 0 0 1px rgba(124,92,255,.22) inset,
+        0 16px 40px rgba(124,92,255,.16);
+    }
+
+    /* ===== Backdrop behind sheet ===== */
+    .backdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.58);
+      backdrop-filter: blur(12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease;
+      z-index: 40;
+    }
+    .backdrop.show{
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ===== Panel ===== */
+    .panel{padding: 14px}
+    .panelTop{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .panel h2{margin:0 0 4px; font-size: 18px}
+    .panel .dateLine{color:var(--muted); font-size:13px; margin-bottom:12px}
+
+    .form{
+      display:grid;
+      gap:10px;
+      padding:12px;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      background: rgba(0,0,0,.18);
+      margin-bottom:12px;
+    }
+
+    .row{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+    label{font-size:12px; color:var(--muted); display:block; margin:0 0 6px}
+
+    input[type="text"], select{
+      width:100%;
+      min-height: var(--tap);
+      padding: 12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(8,10,16,.72);
+      outline:none;
+      font-size:16px; /* iOS anti-zoom */
+    }
+    input[type="text"]:focus, select:focus{
+      border-color: rgba(124,92,255,.85);
+      box-shadow: 0 0 0 4px rgba(124,92,255,.14);
+    }
+
+    .hint{font-size:12px; color:var(--muted); margin-top:2px}
+
+    .list{display:grid; gap:10px;}
+    .item{
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      padding:12px;
+      background: rgba(0,0,0,.18);
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:stretch;
+    }
+    .item.taken{
+      border-color: rgba(34,197,94,.45);
+      background: rgba(34,197,94,.10);
+      opacity:.97;
+    }
+    .item .left{display:grid; gap:4px}
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(124,92,255,.45);
+      background: rgba(124,92,255,.14);
+      font-size:12px; color: #efeaff;
+      width:fit-content;
+    }
+    .pill.ok{
+      border-color: rgba(34,197,94,.55);
+      background: rgba(34,197,94,.16);
+      color:#dfffea;
+    }
+    .med{font-weight:900; font-size:15px}
+    .dose{color:var(--muted); font-size:13px}
+    .actions{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-start}
+
+    .footer{
+      margin-top: 12px;
+      color:var(--muted);
+      font-size:12px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(18px + var(--safe-bottom));
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.70);
+      border: 1px solid rgba(255,255,255,.12);
+      padding: 10px 12px;
+      border-radius: 999px;
+      color: var(--text);
+      font-size: 13px;
+      backdrop-filter: blur(10px);
+      display:none;
+      max-width: calc(100vw - 24px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      z-index: 999;
+    }
+
+    /* ===== MOBILE: bottom sheet ===== */
+    @media (max-width: 940px){
+      .layout{grid-template-columns: 1fr}
+
+      aside.card{
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 50;
+        border-radius: 18px 18px 0 0;
+        box-shadow: 0 -18px 50px rgba(0,0,0,.55);
+        max-height: calc(82vh + var(--safe-bottom));
+        transition: transform .18s ease;
+        background: rgba(10, 12, 18, .96) !important;
+        backdrop-filter: blur(14px);
+      }
+      aside.card.open{ transform: translateY(0%) !important; }
+
+      .sheetHandle{
+        display:flex;
+        justify-content:center;
+        padding: 10px 0 6px;
+        background: rgba(0,0,0,.28);
+        border-bottom: 1px solid rgba(255,255,255,.06);
+      }
+      .sheetHandle .bar{
+        width: 52px;
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(255,255,255,.20);
+      }
+
+      .panel{
+        padding-bottom: calc(14px + var(--safe-bottom));
+        overflow:auto;
+        max-height: calc(82vh + var(--safe-bottom));
+      }
+
+      /* ===== sheet w pełni chowany (zostaje tylko uchwyt) ===== */
+      aside.card{ transform: translateY(calc(100% - 28px)) !important; }
+
+      /* kalendarz ma miejsce na uchwyt */
+      .wrap{ padding-bottom: calc(14px + var(--safe-bottom) + 34px) !important; }
+    }
+
+    @media (max-width: 420px){
+      .wrap{ padding: 12px; padding-top: calc(12px + var(--safe-top)); padding-bottom: calc(12px + var(--safe-bottom)); }
+      .dow, .days{ gap: 6px; }
+      .day{ min-height: 72px; padding: 9px; }
+      .row{ grid-template-columns: 1fr; }
+      .btn{ width: 100%; }
+      .nav .btn{ width:auto; }
+      .splitActions{ width:100%; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>💊 Kalendarz leków</h1>
+        <div class="sub">żeby wszystkie zwierzaczki były super zdrowe</div>
+      </div>
+      <div class="splitActions">
+        <button class="btn danger" id="wipeBtn" title="Usuwa wszystkie wpisy">Wyczyść wszystko</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- Calendar -->
+      <section class="card">
+        <div class="hd">
+          <div class="monthTitle" id="monthTitle">—</div>
+          <div class="nav">
+            <button class="btn mini" id="prevBtn" aria-label="Poprzedni miesiąc">←</button>
+            <button class="btn mini" id="nextBtn" aria-label="Następny miesiąc">→</button>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="dow">
+            <div>Pn</div><div>Wt</div><div>Śr</div><div>Czw</div><div>Pt</div><div>Sb</div><div>Nd</div>
+          </div>
+          <div class="days" id="days"></div>
+        </div>
+      </section>
+
+      <!-- Backdrop -->
+      <div class="backdrop" id="backdrop"></div>
+
+      <!-- Side panel / Mobile sheet -->
+      <aside class="card" id="sheet">
+        <div class="sheetHandle" id="sheetHandle" style="display:none">
+          <div class="bar"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panelTop">
+            <div>
+              <h2 id="panelTitle">Wybierz dzień</h2>
+              <div class="dateLine" id="panelDate">Kliknij w kalendarzu</div>
+            </div>
+            <button class="btn mini" id="closeSheetBtn" style="display:none" type="button">Zamknij</button>
+          </div>
+
+          <!-- Import (z innego dnia w aplikacji) -->
+          <div class="form" id="importBox" style="display:none">
+            <div class="row">
+              <div>
+                <label for="importFrom">Importuj z dnia</label>
+                <select id="importFrom"></select>
+                <div class="hint">Kopiuje leki z wybranego dnia do aktualnego dnia.</div>
+              </div>
+              <div style="display:grid; gap:10px; align-content:end;">
+                <button class="btn primary" id="importAddBtn" type="button">Importuj (dodaj)</button>
+                <button class="btn danger" id="importReplaceBtn" type="button">Importuj (zastąp)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add entry -->
+          <div class="form" id="form" style="display:none">
+            <div class="row">
+              <div>
+                <label for="timeOfDay">Pora dnia</label>
+                <select id="timeOfDay">
+                  <option value="Rano">Rano</option>
+                  <option value="Południe">Południe</option>
+                  <option value="Popołudnie">Popołudnie</option>
+                  <option value="Wieczór">Wieczór</option>
+                  <option value="Noc">Noc</option>
+                  <option value="Inna">Inna (wpiszę sam/a)</option>
+                </select>
+                <div class="hint">Tip: wpisz np. 07:30 / 21:30 — wtedy sortuje idealnie.</div>
+              </div>
+              <div>
+                <label for="customTime">Własna pora (opcjonalnie)</label>
+                <input id="customTime" type="text" placeholder="np. 07:30 / po śniadaniu / 21:30" />
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <label for="medName">Nazwa leku</label>
+                <input id="medName" type="text" placeholder="np. Flora Balance / Gabapentin" />
+              </div>
+              <div>
+                <label for="dose">Ilość / dawka</label>
+                <input id="dose" type="text" placeholder="np. 1 kapsułka / 1/2 kapsułki / 10 ml" />
+              </div>
+            </div>
+
+            <div style="display:grid; gap:10px;">
+              <div class="hint" style="margin:0;">Dodaj ten sam lek na kolejne dni (start = wybrany dzień):</div>
+
+              <div class="splitActions" style="gap:8px;">
+                <button class="btn mini" type="button" id="add5Btn">+5</button>
+                <button class="btn mini" type="button" id="add7Btn">+7</button>
+                <button class="btn mini" type="button" id="add30Btn">+30</button>
+                <button class="btn mini" type="button" id="add200Btn">+200</button>
+              </div>
+
+              <div class="row">
+                <div>
+                  <label for="bulkDays">Ile dni do przodu?</label>
+                  <input id="bulkDays" type="text" inputmode="numeric" placeholder="np. 14" />
+                  <div class="hint">Wpisz liczbę (1–3650). Doda na każdy dzień.</div>
+                </div>
+                <div style="display:grid; align-content:end;">
+                  <button class="btn primary" type="button" id="bulkAddBtn">Dodaj na N dni</button>
+                </div>
+              </div>
+            </div>
+
+            <button class="btn primary" id="addBtn" type="button">Dodaj tylko na ten dzień</button>
+          </div>
+
+          <div class="list" id="list"></div>
+
+          <div class="footer">
+            <div class="splitActions">
+              <button class="btn mini" id="exportBtn" type="button">Eksport danych</button>
+              <button class="btn mini" id="importBtn" type="button">Import danych</button>
+              <input type="file" id="importFile" accept="application/json" style="display:none" />
+            </div>
+            <div id="countLine">—</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+  (() => {
+    const pad2 = n => String(n).padStart(2,'0');
+    const formatISO = (y,m,d) => `${y}-${pad2(m)}-${pad2(d)}`;
+    const monthsPL = ["stycznia","lutego","marca","kwietnia","maja","czerwca","lipca","sierpnia","września","października","listopada","grudnia"];
+    const monthNamesPL = ["Styczeń","Luty","Marzec","Kwiecień","Maj","Czerwiec","Lipiec","Sierpień","Wrzesień","Październik","Listopad","Grudzień"];
+    const dayNamesPL = ["niedziela","poniedziałek","wtorek","środa","czwartek","piątek","sobota"];
+
+    function addDaysISO(iso, add){
+      const [y,m,d] = iso.split("-").map(Number);
+      const dt = new Date(y, m-1, d);
+      dt.setDate(dt.getDate() + add);
+      return formatISO(dt.getFullYear(), dt.getMonth()+1, dt.getDate());
+    }
+
+    const toastEl = document.getElementById('toast');
+    let toastTimer = null;
+    function toast(msg){
+      toastEl.textContent = msg;
+      toastEl.style.display = 'block';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.style.display = 'none', 2200);
+    }
+
+    // Storage
+    const STORAGE_KEY = "kalendarzLekow_v6_statusGlow";
+    function loadData(){
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+      catch { return {}; }
+    }
+    function saveData(obj){ localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); }
+    function uid(){ return Math.random().toString(16).slice(2) + "-" + Date.now().toString(16); }
+
+    // Sorting
+    function extractHHMM(label){
+      const m = String(label || "").match(/(\d{1,2}):(\d{2})/);
+      if(!m) return null;
+      const hh = parseInt(m[1], 10);
+      const mm = parseInt(m[2], 10);
+      if(Number.isNaN(hh) || Number.isNaN(mm)) return null;
+      if(hh === 24 && mm === 0) return {hh:24, mm:0};
+      if(hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+      return {hh, mm};
+    }
+    const orderBase = { "Rano": 7*60, "Południe": 12*60, "Popołudnie": 16*60, "Wieczór": 20*60, "Noc": 23*60, "Inna": 13*60 };
+
+    function timeScore(entry){
+      const t = extractHHMM(entry.timeLabel);
+      if(t){
+        return (t.hh === 24 && t.mm === 0) ? 24*60 : (t.hh*60 + t.mm);
+      }
+      const head = String(entry.timeLabel || "").split("•")[0].trim();
+      if(orderBase[head] != null) return orderBase[head];
+      return 13*60;
+    }
+
+    function sortEntries(arr){
+      return arr.slice().sort((a,b) => {
+        const ta = timeScore(a);
+        const tb = timeScore(b);
+        if(ta !== tb) return ta - tb;
+        if(!!a.taken !== !!b.taken) return a.taken ? 1 : -1;
+        return (a.createdAt||0) - (b.createdAt||0);
+      });
+    }
+
+    // State
+    const now = new Date();
+    let viewYear = now.getFullYear();
+    let viewMonth = now.getMonth()+1;
+    let selectedISO = null;
+    let data = loadData();
+
+    // DOM
+    const monthTitle = document.getElementById('monthTitle');
+    const daysEl = document.getElementById('days');
+    const panelTitle = document.getElementById('panelTitle');
+    const panelDate = document.getElementById('panelDate');
+    const formEl = document.getElementById('form');
+    const importBox = document.getElementById('importBox');
+    const importFrom = document.getElementById('importFrom');
+    const listEl = document.getElementById('list');
+    const countLine = document.getElementById('countLine');
+
+    const timeOfDay = document.getElementById('timeOfDay');
+    const customTime = document.getElementById('customTime');
+    const medName = document.getElementById('medName');
+    const dose = document.getElementById('dose');
+    const bulkDays = document.getElementById('bulkDays');
+
+    const sheet = document.getElementById('sheet');
+    const sheetHandle = document.getElementById('sheetHandle');
+    const closeSheetBtn = document.getElementById('closeSheetBtn');
+    const backdrop = document.getElementById('backdrop');
+
+    const isMobile = () => window.matchMedia("(max-width: 940px)").matches;
+
+    function openSheet(){
+      if(!isMobile()) return;
+      sheet.classList.add("open");
+      backdrop.classList.add("show");
+    }
+    function closeSheet(){
+      if(!isMobile()) return;
+      sheet.classList.remove("open");
+      backdrop.classList.remove("show");
+    }
+    function refreshSheetUI(){
+      if(isMobile()){
+        sheetHandle.style.display = "flex";
+        closeSheetBtn.style.display = "inline-flex";
+      } else {
+        sheetHandle.style.display = "none";
+        closeSheetBtn.style.display = "none";
+        sheet.classList.remove("open");
+        backdrop.classList.remove("show");
+      }
+    }
+
+    closeSheetBtn.addEventListener("click", closeSheet);
+    sheetHandle.addEventListener("click", () => {
+      if(sheet.classList.contains("open")) closeSheet(); else openSheet();
+    });
+    backdrop.addEventListener("click", closeSheet);
+
+    // Monday-first
+    const monFirstIndex = (jsDay) => (jsDay + 6) % 7;
+
+    function entriesForISO(iso){ return Array.isArray(data[iso]) ? data[iso] : []; }
+    function entriesCountForISO(iso){ return entriesForISO(iso).length; }
+    function takenCountForISO(iso){ return entriesForISO(iso).filter(e => !!e.taken).length; }
+
+    function summarizeForISO(iso){
+      const arr = sortEntries(entriesForISO(iso));
+      if(!arr.length) return "";
+      const firstTwo = arr.slice(0,2).map(e => {
+        const tag = e.taken ? "✓" : "";
+        const dosePart = e.dose ? ` (${e.dose})` : "";
+        return `${e.timeLabel}: ${e.medName}${dosePart}${tag}`;
+      });
+      return firstTwo.join(" • ") + (arr.length > 2 ? ` • +${arr.length-2}` : "");
+    }
+
+    // ===== Status dnia / dziś =====
+    function startOfToday(){
+      const t = new Date();
+      t.setHours(0,0,0,0);
+      return t;
+    }
+    function isoToLocalDate(iso){
+      const [y,m,d] = iso.split("-").map(Number);
+      return new Date(y, m-1, d);
+    }
+    function isPastDay(iso){
+      const day = isoToLocalDate(iso);
+      day.setHours(0,0,0,0);
+      return day.getTime() < startOfToday().getTime();
+    }
+    function isToday(iso){
+      const t = startOfToday();
+      const d = isoToLocalDate(iso);
+      d.setHours(0,0,0,0);
+      return d.getTime() === t.getTime();
+    }
+    function dayStatus(iso){
+      const arr = entriesForISO(iso);
+      if(!arr.length) return "none";
+      if(!isPastDay(iso)) return "none";
+      const allTaken = arr.every(e => !!e.taken);
+      return allTaken ? "done" : "missed";
+    }
+
+    function renderCalendar(){
+      monthTitle.textContent = `${monthNamesPL[viewMonth-1]} ${viewYear}`;
+      daysEl.innerHTML = "";
+
+      const first = new Date(viewYear, viewMonth-1, 1);
+      const last = new Date(viewYear, viewMonth, 0);
+      const daysInMonth = last.getDate();
+
+      const lead = monFirstIndex(first.getDay());
+      const prevLast = new Date(viewYear, viewMonth-1, 0);
+      const prevDays = prevLast.getDate();
+      const totalCells = 42;
+
+      for(let cell=0; cell<totalCells; cell++){
+        const dayBtn = document.createElement('div');
+        dayBtn.className = "day";
+
+        let y=viewYear, m=viewMonth, d=1;
+        let isMutedCell = false;
+
+        if(cell < lead){
+          d = prevDays - (lead - 1 - cell);
+          const prev = new Date(viewYear, viewMonth-2, d);
+          y = prev.getFullYear(); m = prev.getMonth()+1;
+          isMutedCell = true;
+        } else if(cell >= lead + daysInMonth){
+          d = (cell - (lead + daysInMonth)) + 1;
+          const next = new Date(viewYear, viewMonth, d);
+          y = next.getFullYear(); m = next.getMonth()+1;
+          isMutedCell = true;
+        } else {
+          d = (cell - lead) + 1;
+        }
+
+        const iso = formatISO(y,m,d);
+
+        if(isMutedCell) dayBtn.classList.add("muted");
+        if(selectedISO === iso) dayBtn.classList.add("selected");
+
+        // dziś: glow (nie dotyczy przeszłości statusowej, bo status działa tylko dla past)
+        if(isToday(iso)) dayBtn.classList.add("todayGlow");
+
+        // przeszłość: zielony/czerwony
+        const st = dayStatus(iso);
+        if(st === "done") dayBtn.classList.add("doneDay");
+        if(st === "missed") dayBtn.classList.add("missedDay");
+
+        const num = document.createElement('div');
+        num.className = "daynum";
+        num.textContent = d;
+        dayBtn.appendChild(num);
+
+        const total = entriesCountForISO(iso);
+        if(total > 0){
+          const badge = document.createElement('div');
+          badge.className = "badge";
+          const taken = takenCountForISO(iso);
+          badge.textContent = isPastDay(iso) ? `${taken}/${total}` : `${total}`;
+          dayBtn.appendChild(badge);
+
+          const tiny = document.createElement('div');
+          tiny.className = "tiny";
+          tiny.textContent = summarizeForISO(iso);
+          dayBtn.appendChild(tiny);
+        } else {
+          const tiny = document.createElement('div');
+          tiny.className = "tiny";
+          tiny.textContent = "";
+          dayBtn.appendChild(tiny);
+        }
+
+        dayBtn.addEventListener('click', () => {
+          selectedISO = iso;
+          if(isMutedCell){ viewYear = y; viewMonth = m; }
+          renderCalendar();
+          renderPanel();
+          openSheet();
+        });
+
+        daysEl.appendChild(dayBtn);
+      }
+    }
+
+    function setImportOptions(){
+      const keys = Object.keys(data).filter(k => entriesForISO(k).length > 0).sort();
+      importFrom.innerHTML = "";
+
+      if(keys.length === 0){
+        const opt = document.createElement('option');
+        opt.value = "";
+        opt.textContent = "Brak dni do importu";
+        importFrom.appendChild(opt);
+        importFrom.disabled = true;
+        return;
+      }
+
+      importFrom.disabled = false;
+
+      keys.forEach(k => {
+        const opt = document.createElement('option');
+        opt.value = k;
+        const taken = takenCountForISO(k);
+        const total = entriesCountForISO(k);
+        opt.textContent = `${k} (wpisy: ${total}, wzięto: ${taken})`;
+        importFrom.appendChild(opt);
+      });
+
+      if(selectedISO && keys.includes(selectedISO) && keys.length > 1){
+        const firstOther = keys.find(x => x !== selectedISO);
+        importFrom.value = firstOther;
+      }
+    }
+
+    function renderPanel(){
+      if(!selectedISO){
+        panelTitle.textContent = "Wybierz dzień";
+        panelDate.textContent = "Kliknij w kalendarzu";
+        formEl.style.display = "none";
+        importBox.style.display = "none";
+        listEl.innerHTML = "";
+        countLine.textContent = "—";
+        return;
+      }
+
+      const [y,m,d] = selectedISO.split("-").map(Number);
+      const dateObj = new Date(y, m-1, d);
+      const dow = dayNamesPL[dateObj.getDay()];
+
+      panelTitle.textContent = "Plan leków";
+      panelDate.textContent = `${dow}, ${d} ${monthsPL[m-1]} ${y} (${selectedISO})`;
+
+      formEl.style.display = "grid";
+      importBox.style.display = "grid";
+      setImportOptions();
+
+      const arr = sortEntries(entriesForISO(selectedISO));
+      listEl.innerHTML = "";
+
+      if(arr.length === 0){
+        listEl.innerHTML = `<div style="color:var(--muted); font-size:13px; padding:6px 2px;">
+          Brak wpisów. Dodaj coś i będzie elegancko ✨
+        </div>`;
+      } else {
+        arr.forEach(entry => {
+          const item = document.createElement('div');
+          item.className = "item" + (entry.taken ? " taken" : "");
+
+          const left = document.createElement('div');
+          left.className = "left";
+
+          const pill = document.createElement('div');
+          pill.className = "pill" + (entry.taken ? " ok" : "");
+          pill.textContent = entry.timeLabel + (entry.taken ? " • Wzięto ✓" : "");
+          left.appendChild(pill);
+
+          const med = document.createElement('div');
+          med.className = "med";
+          med.textContent = entry.medName;
+          left.appendChild(med);
+
+          const doseEl = document.createElement('div');
+          doseEl.className = "dose";
+          doseEl.textContent = entry.dose ? `Ilość/dawka: ${entry.dose}` : "Ilość/dawka: —";
+          left.appendChild(doseEl);
+
+          const actions = document.createElement('div');
+          actions.className = "actions";
+
+          const took = document.createElement('button');
+          took.className = "btn mini " + (entry.taken ? "primary" : "ok");
+          took.textContent = entry.taken ? "Cofnij" : "Wzięto";
+          took.addEventListener('click', () => {
+            entry.taken = !entry.taken;
+            entry.takenAt = entry.taken ? Date.now() : null;
+            saveData(data);
+            toast(entry.taken ? "Oznaczono jako wzięte ✅" : "Cofnięto oznaczenie ↩️");
+            renderCalendar();
+            renderPanel();
+          });
+
+          const del = document.createElement('button');
+          del.className = "btn mini danger";
+          del.textContent = "Usuń";
+          del.addEventListener('click', () => {
+            const nextArr = entriesForISO(selectedISO).filter(x => x.id !== entry.id);
+            if(nextArr.length) data[selectedISO] = nextArr;
+            else delete data[selectedISO];
+            saveData(data);
+            toast("Usunięto wpis ✅");
+            renderCalendar();
+            renderPanel();
+          });
+
+          actions.appendChild(took);
+          actions.appendChild(del);
+
+          item.appendChild(left);
+          item.appendChild(actions);
+          listEl.appendChild(item);
+        });
+
+        const clearDay = document.createElement('button');
+        clearDay.className = "btn danger";
+        clearDay.textContent = "Wyczyść ten dzień";
+        clearDay.addEventListener('click', () => {
+          if(confirm("Na pewno wyczyścić wszystkie wpisy dla tego dnia?")){
+            delete data[selectedISO];
+            saveData(data);
+            toast("Dzień wyczyszczony 🧹");
+            renderCalendar();
+            renderPanel();
+          }
+        });
+        listEl.appendChild(clearDay);
+      }
+
+      const total = arr.length;
+      const taken = arr.filter(e => !!e.taken).length;
+      countLine.textContent = `Wpisów: ${total} • Wzięto: ${taken}`;
+    }
+
+    function buildEntryFromForm(){
+      if(!selectedISO){ toast("Najpierw wybierz dzień 👆"); return null; }
+
+      const tod = timeOfDay.value;
+      const ct = customTime.value.trim();
+      const timeLabel = (tod === "Inna")
+        ? (ct || "Inna")
+        : (ct ? `${tod} • ${ct}` : tod);
+
+      const name = medName.value.trim();
+      const d = dose.value.trim();
+
+      if(!name){
+        toast("Wpisz nazwę leku 🙃");
+        medName.focus();
+        return null;
+      }
+      return { timeLabel, medName: name, dose: d };
+    }
+
+    function addEntryToISO(iso, template){
+      const entry = {
+        id: uid(),
+        timeLabel: template.timeLabel,
+        medName: template.medName,
+        dose: template.dose,
+        taken: false,
+        takenAt: null,
+        createdAt: Date.now()
+      };
+      if(!Array.isArray(data[iso])) data[iso] = [];
+      data[iso].push(entry);
+    }
+
+    function clearFormForNext(){
+      medName.value = "";
+      dose.value = "";
+      bulkDays.value = "";
+    }
+
+    function addEntrySingle(){
+      const template = buildEntryFromForm();
+      if(!template) return;
+      addEntryToISO(selectedISO, template);
+      saveData(data);
+      toast("Dodano ✅");
+      clearFormForNext();
+      renderCalendar();
+      renderPanel();
+      medName.focus();
+    }
+
+    function bulkAdd(daysCount){
+      const template = buildEntryFromForm();
+      if(!template) return;
+
+      const endISO = addDaysISO(selectedISO, daysCount - 1);
+      const msg = `Dodać ten lek na ${daysCount} dni?\n\nOd: ${selectedISO}\nDo: ${endISO}\n\n(${template.timeLabel} • ${template.medName})`;
+      if(!confirm(msg)) return;
+
+      for(let i=0;i<daysCount;i++){
+        const iso = addDaysISO(selectedISO, i);
+        addEntryToISO(iso, template);
+      }
+
+      saveData(data);
+      toast(`Dodano na ${daysCount} dni ✅`);
+      clearFormForNext();
+      renderCalendar();
+      renderPanel();
+      medName.focus();
+    }
+
+    function importFromDay(mode){
+      if(!selectedISO){ toast("Wybierz dzień docelowy 👆"); return; }
+      const src = importFrom.value;
+      if(!src || !entriesForISO(src).length){
+        toast("Nie ma co importować 🙃");
+        return;
+      }
+      if(src === selectedISO){
+        toast("To jest ten sam dzień 😅");
+        return;
+      }
+
+      const sourceEntries = entriesForISO(src);
+      const copied = sourceEntries.map(e => ({
+        id: uid(),
+        timeLabel: e.timeLabel,
+        medName: e.medName,
+        dose: e.dose,
+        taken: false,
+        takenAt: null,
+        createdAt: Date.now()
+      }));
+
+      if(mode === "replace"){
+        if(!confirm(`Zastąpić wpisy w ${selectedISO} listą z ${src}?`)) return;
+        data[selectedISO] = copied;
+      } else {
+        if(!Array.isArray(data[selectedISO])) data[selectedISO] = [];
+        data[selectedISO] = data[selectedISO].concat(copied);
+      }
+
+      saveData(data);
+      toast(mode === "replace" ? "Zaimportowano (zastąpiono) ✅" : "Zaimportowano (dodano) ✅");
+      renderCalendar();
+      renderPanel();
+    }
+
+    // Export/Import backup
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "kalendarz-lekow-backup.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("Eksport zapisany 📦");
+    });
+
+    const importBtn = document.getElementById("importBtn");
+    const importFile = document.getElementById("importFile");
+
+    importBtn.addEventListener("click", () => importFile.click());
+    importFile.addEventListener("change", () => {
+      const file = importFile.files[0];
+      if(!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try{
+          const parsed = JSON.parse(reader.result);
+          if(!parsed || typeof parsed !== "object") throw new Error("bad");
+          if(confirm("Zaimportować dane i zastąpić obecne wpisy?")){
+            data = parsed;
+            saveData(data);
+            toast("Dane zaimportowane ✅");
+            renderCalendar();
+            renderPanel();
+            openSheet();
+          }
+        } catch {
+          toast("Nieprawidłowy plik ❌");
+        }
+      };
+      reader.readAsText(file);
+      importFile.value = "";
+    });
+
+    // Events
+    document.getElementById('addBtn').addEventListener('click', addEntrySingle);
+
+    document.getElementById('add5Btn').addEventListener('click', () => bulkAdd(5));
+    document.getElementById('add7Btn').addEventListener('click', () => bulkAdd(7));
+    document.getElementById('add30Btn').addEventListener('click', () => bulkAdd(30));
+    document.getElementById('add200Btn').addEventListener('click', () => bulkAdd(200));
+
+    document.getElementById('bulkAddBtn').addEventListener('click', () => {
+      const n = parseInt((bulkDays.value || "").trim(), 10);
+      if(!Number.isFinite(n) || n < 1 || n > 3650){
+        toast("Wpisz liczbę 1–3650 🙃");
+        bulkDays.focus();
+        return;
+      }
+      bulkAdd(n);
+    });
+
+    document.getElementById('prevBtn').addEventListener('click', () => {
+      viewMonth--;
+      if(viewMonth < 1){ viewMonth = 12; viewYear--; }
+      renderCalendar();
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      viewMonth++;
+      if(viewMonth > 12){ viewMonth = 1; viewYear++; }
+      renderCalendar();
+    });
+
+    document.getElementById('wipeBtn').addEventListener('click', () => {
+      if(confirm("To usunie WSZYSTKIE wpisy ze wszystkich dni. Na pewno?")){
+        data = {};
+        saveData(data);
+        toast("Wszystko wyczyszczone 🧼");
+        renderCalendar();
+        renderPanel();
+      }
+    });
+
+    document.getElementById('importAddBtn').addEventListener('click', () => importFromDay("add"));
+    document.getElementById('importReplaceBtn').addEventListener('click', () => importFromDay("replace"));
+
+    timeOfDay.addEventListener('change', () => {
+      if(timeOfDay.value === "Inna") customTime.focus();
+    });
+
+    // Init
+    refreshSheetUI();
+    window.addEventListener("resize", refreshSheetUI);
+
+    const todayISO = formatISO(now.getFullYear(), now.getMonth()+1, now.getDate());
+    selectedISO = selectedISO || todayISO;
+
+    renderCalendar();
+    renderPanel();
+
+    // na mobile startowo schowany
+    if(isMobile()) closeSheet();
+
+    // Service worker
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js");
+      });
+    }
+  })();
+  </script>
+</body>
+</html>
