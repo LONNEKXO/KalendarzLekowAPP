@@ -183,25 +183,45 @@
     }
     .daynum{font-weight:900; font-size: 14px; line-height:1}
 
+    /* ===== NOWE: czytelna bańka z "pozostało" ===== */
     .badge{
-      position:absolute; right:8px; top:8px;
-      background: rgba(34,197,94,.18);
-      border:1px solid rgba(34,197,94,.45);
+      position:absolute;
+      right:10px;
+      top:10px;
+
+      min-width: 30px;
+      height: 30px;
+      padding: 0 10px;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+
+      font-weight: 900;
+      font-size: 14px;
+      letter-spacing: .2px;
+
+      border-radius: 999px;
+
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.14);
+      color: var(--text);
+
+      box-shadow: 0 10px 22px rgba(0,0,0,.22);
+    }
+    .badge.ok{
+      background: rgba(34,197,94,.22);
+      border-color: rgba(34,197,94,.55);
       color: #dfffea;
-      font-size:12px;
-      padding:3px 7px;
-      border-radius:999px;
     }
-    .tiny{
-      margin-top:auto;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.25;
-      display:-webkit-box;
-      -webkit-line-clamp:2;
-      -webkit-box-orient:vertical;
-      overflow:hidden;
+    .badge.danger{
+      background: rgba(239,68,68,.22);
+      border-color: rgba(239,68,68,.55);
+      color: #ffe3e3;
     }
+
+    /* ukrywamy mini-opisy w kalendarzu (po kliknięciu i tak widać wszystko) */
+    .tiny{ display:none !important; }
 
     /* ===== Status dnia (dni z przeszłości) ===== */
     .day.doneDay{
@@ -213,17 +233,6 @@
       border-color: rgba(239,68,68,.65) !important;
       background: rgba(239,68,68,.12) !important;
       box-shadow: 0 0 0 1px rgba(239,68,68,.20) inset, 0 10px 26px rgba(239,68,68,.10);
-    }
-    .day.doneDay .badge{
-      background: rgba(34,197,94,.22) !important;
-      border-color: rgba(34,197,94,.55) !important;
-    }
-    .day.missedDay .badge{
-      background: rgba(239,68,68,.22) !important;
-      border-color: rgba(239,68,68,.55) !important;
-    }
-    .day.doneDay .tiny, .day.missedDay .tiny{
-      color: rgba(233,236,241,.78);
     }
 
     /* ===== Dziś: delikatny niebiesko-fioletowy glow ===== */
@@ -403,7 +412,7 @@
         max-height: calc(82vh + var(--safe-bottom));
       }
 
-      /* ===== sheet w pełni chowany (zostaje tylko uchwyt) ===== */
+      /* sheet w pełni chowany (zostaje tylko uchwyt) */
       aside.card{ transform: translateY(calc(100% - 28px)) !important; }
 
       /* kalendarz ma miejsce na uchwyt */
@@ -427,7 +436,7 @@
     <header>
       <div>
         <h1>💊 Kalendarz leków</h1>
-        <div class="sub">DLA ZAPOMINALSKICH!</div>
+        <div class="sub">żeby wszystkie zwierzaczki były super zdrowe</div>
       </div>
       <div class="splitActions">
         <button class="btn danger" id="wipeBtn" title="Usuwa wszystkie wpisy">Wyczyść wszystko</button>
@@ -471,7 +480,6 @@
             <button class="btn mini" id="closeSheetBtn" style="display:none" type="button">Zamknij</button>
           </div>
 
-          <!-- Import (z innego dnia w aplikacji) -->
           <div class="form" id="importBox" style="display:none">
             <div class="row">
               <div>
@@ -486,7 +494,6 @@
             </div>
           </div>
 
-          <!-- Add entry -->
           <div class="form" id="form" style="display:none">
             <div class="row">
               <div>
@@ -584,8 +591,7 @@
       toastTimer = setTimeout(() => toastEl.style.display = 'none', 2200);
     }
 
-    // Storage
-    const STORAGE_KEY = "kalendarzLekow_v6_statusGlow";
+    const STORAGE_KEY = "kalendarzLekow_v7_remainingBadge";
     function loadData(){
       try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
       catch { return {}; }
@@ -593,7 +599,6 @@
     function saveData(obj){ localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); }
     function uid(){ return Math.random().toString(16).slice(2) + "-" + Date.now().toString(16); }
 
-    // Sorting
     function extractHHMM(label){
       const m = String(label || "").match(/(\d{1,2}):(\d{2})/);
       if(!m) return null;
@@ -626,14 +631,12 @@
       });
     }
 
-    // State
     const now = new Date();
     let viewYear = now.getFullYear();
     let viewMonth = now.getMonth()+1;
     let selectedISO = null;
     let data = loadData();
 
-    // DOM
     const monthTitle = document.getElementById('monthTitle');
     const daysEl = document.getElementById('days');
     const panelTitle = document.getElementById('panelTitle');
@@ -685,25 +688,12 @@
     });
     backdrop.addEventListener("click", closeSheet);
 
-    // Monday-first
     const monFirstIndex = (jsDay) => (jsDay + 6) % 7;
 
     function entriesForISO(iso){ return Array.isArray(data[iso]) ? data[iso] : []; }
     function entriesCountForISO(iso){ return entriesForISO(iso).length; }
     function takenCountForISO(iso){ return entriesForISO(iso).filter(e => !!e.taken).length; }
 
-    function summarizeForISO(iso){
-      const arr = sortEntries(entriesForISO(iso));
-      if(!arr.length) return "";
-      const firstTwo = arr.slice(0,2).map(e => {
-        const tag = e.taken ? "✓" : "";
-        const dosePart = e.dose ? ` (${e.dose})` : "";
-        return `${e.timeLabel}: ${e.medName}${dosePart}${tag}`;
-      });
-      return firstTwo.join(" • ") + (arr.length > 2 ? ` • +${arr.length-2}` : "");
-    }
-
-    // ===== Status dnia / dziś =====
     function startOfToday(){
       const t = new Date();
       t.setHours(0,0,0,0);
@@ -770,11 +760,8 @@
 
         if(isMutedCell) dayBtn.classList.add("muted");
         if(selectedISO === iso) dayBtn.classList.add("selected");
-
-        // dziś: glow (nie dotyczy przeszłości statusowej, bo status działa tylko dla past)
         if(isToday(iso)) dayBtn.classList.add("todayGlow");
 
-        // przeszłość: zielony/czerwony
         const st = dayStatus(iso);
         if(st === "done") dayBtn.classList.add("doneDay");
         if(st === "missed") dayBtn.classList.add("missedDay");
@@ -786,21 +773,13 @@
 
         const total = entriesCountForISO(iso);
         if(total > 0){
-          const badge = document.createElement('div');
-          badge.className = "badge";
           const taken = takenCountForISO(iso);
-          badge.textContent = isPastDay(iso) ? `${taken}/${total}` : `${total}`;
-          dayBtn.appendChild(badge);
+          const remaining = Math.max(0, total - taken);
 
-          const tiny = document.createElement('div');
-          tiny.className = "tiny";
-          tiny.textContent = summarizeForISO(iso);
-          dayBtn.appendChild(tiny);
-        } else {
-          const tiny = document.createElement('div');
-          tiny.className = "tiny";
-          tiny.textContent = "";
-          dayBtn.appendChild(tiny);
+          const badge = document.createElement('div');
+          badge.className = "badge " + (remaining === 0 ? "ok" : "danger");
+          badge.textContent = (remaining === 0 ? "✓" : String(remaining));
+          dayBtn.appendChild(badge);
         }
 
         dayBtn.addEventListener('click', () => {
@@ -1063,7 +1042,6 @@
       renderPanel();
     }
 
-    // Export/Import backup
     document.getElementById("exportBtn").addEventListener("click", () => {
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -1104,7 +1082,6 @@
       importFile.value = "";
     });
 
-    // Events
     document.getElementById('addBtn').addEventListener('click', addEntrySingle);
 
     document.getElementById('add5Btn').addEventListener('click', () => bulkAdd(5));
@@ -1151,7 +1128,6 @@
       if(timeOfDay.value === "Inna") customTime.focus();
     });
 
-    // Init
     refreshSheetUI();
     window.addEventListener("resize", refreshSheetUI);
 
@@ -1161,10 +1137,8 @@
     renderCalendar();
     renderPanel();
 
-    // na mobile startowo schowany
     if(isMobile()) closeSheet();
 
-    // Service worker
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
         navigator.serviceWorker.register("./service-worker.js");
@@ -1174,4 +1148,3 @@
   </script>
 </body>
 </html>
-
